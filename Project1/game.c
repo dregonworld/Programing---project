@@ -1,18 +1,18 @@
 #include <stdio.h>
-#include <stdlib.h> // system("cls") 함수를 위해 필요
-#include <conio.h>  // _getch() 함수를 위해 필요 (Windows)
+#include <stdlib.h> //system("cls") 함수를 위해 필요
+#include <conio.h>  //_getch() 함수를 위해 필요
 
-// 맵 크기를 상수로 정의
+//맵 크기를 상수로 정의
 #define MAP_HEIGHT 10
 #define MAP_WIDTH 20
 
-// 플레이어 구조체 정의
+//플레이어 구조체 정의
 struct Player {
     int x;
     int y;
 };
 
-// 맵 2차원 배열 선언
+//맵 2차원 배열 선언
 char map[MAP_HEIGHT][MAP_WIDTH] = {
     "###################",
     "#..................",
@@ -26,7 +26,7 @@ char map[MAP_HEIGHT][MAP_WIDTH] = {
     "###################"
 };
 
-// 화면 출력
+//화면 출력
 void display_map(struct Player* player) {
     system("cls");
 
@@ -47,23 +47,22 @@ void display_map(struct Player* player) {
 }
 
 int main() {
-    // 5. 플레이어 변수 생성 및 초기 위치 설정
+    //플레이어 변수 생성 및 초기 위치 설정
     struct Player player;
     player.x = 1; // 시작 x좌표
     player.y = 1; // 시작 y좌표
 
     char input_key;
 
-    // 6. 메인 게임 루프 (while(1))
+    //메인 게임 루프
     while (1) {
 
         display_map(&player);
 
-        // 키 입력
+        //키 입력
         input_key = _getch();
 
-        // 7. 키 입력 처리 (switch 또는 if-else)
-
+        //키 입력 처리
         int next_x = player.x;
         int next_y = player.y;
 
@@ -83,13 +82,13 @@ int main() {
             break;
         }
 
-        // 8. 벽 충돌 최종 검사
+        //벽 충돌 최종 검사
         if (map[next_y][next_x] != '#') {
             player.x = next_x;
             player.y = next_y;
         }
     }
-
+    //게임종료시 멘트
     printf("게임을 종료했습니다.\n");
     return 0;
 }
