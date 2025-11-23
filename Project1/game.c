@@ -1,65 +1,76 @@
-#define _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS 
 #include <stdio.h>
 #include <stdlib.h> // system("cls")
 #include <conio.h>  // _getch()
 #include <string.h> // strcpy, sprintf
 
-//맵 크기 상수
 #define MAP_HEIGHT 10
 #define MAP_WIDTH 20
 
-//몬스터 최대 수
 #define MAX_MONSTERS 3
+#define MAX_ITEMS 3     // 아이템 개수
 
-//플레이어 구조체 정의
+// 플레이어 구조체
 struct Player {
     int x;
     int y;
     int hp;
+    int max_hp; // 최대 체력 (과회복 방지용)
     int atk;
 };
 
-//몬스터 구조체 정의
+// 몬스터 구조체
 struct Monster {
     int x;
     int y;
     int hp;
+    int max_hp;
     int atk;
-    int alive; // 1 = 살아있음, 0 = 죽음
+    int alive;
 };
 
-//맵 2차원 배열
+// 아이템 구조체
+struct Item {
+    int x;
+    int y;
+    char type; // 'P':물약, 'S':검
+    int value; // 회복량 또는 공격력 증가량
+    int active; // 1:존재함, 0:획득함
+};
+
+// 맵 데이터
 char map[MAP_HEIGHT][MAP_WIDTH] = {
     "###################",
     "#.................#",
     "#.###############.#",
-    "#.#.............#.#",
+    "#.#...............#",
     "#.#.#####.#####.#.#",
     "#.#.#...#.#...#.#.#",
     "#.#.#...#.#...#.#.#",
     "#.###############.#",
-    "#...............>#", // 출구
+    "#...............>#",
     "###################"
 };
 
-//화면 하단에 출력될 게임 상태 메시지
 char game_message[100] = "";
+int current_stage = 1; // 현재 스테이지
 
-//화면을 다시 그리는 함수
-void display_map(struct Player* player, struct Monster monsters[]) {
-    system("cls"); // 화면 지우기
+// 화면 출력 함수
+void display_map(struct Player* player, struct Monster monsters[], struct Item items[]) {
+    system("cls");
 
-    //맵 그리기
+    printf("=== [ STAGE %d ] ===\n", current_stage); // 스테이지 표시
+
     for (int i = 0; i < MAP_HEIGHT; i++) {
         for (int j = 0; j < MAP_WIDTH - 1; j++) {
 
-            //플레이어 위치인가?
+            // 1. 플레이어
             if (i == player->y && j == player->x) {
                 printf("@");
-                continue; // 플레이어가 최우선
+                continue;
             }
 
-            //몬스터 위치인가?
+            // 2. 몬스터
             int monster_here = 0;
             for (int k = 0; k < MAX_MONSTERS; k++) {
                 if (monsters[k].alive && monsters[k].y == i && monsters[k].x == j) {
@@ -68,73 +79,107 @@ void display_map(struct Player* player, struct Monster monsters[]) {
                     break;
                 }
             }
-            if (monster_here) {
-                continue; //몬스터가 다음 순위
-            }
+            if (monster_here) continue;
 
-            //둘 다 아니면 맵 문자 출력
+            // 3. 아이템 (3주차 추가)
+            int item_here = 0;
+            for (int k = 0; k < MAX_ITEMS; k++) {
+                if (items[k].active && items[k].y == i && items[k].x == j) {
+                    printf("%c", items[k].type); // P 또는 S 출력
+                    item_here = 1;
+                    break;
+                }
+            }
+            if (item_here) continue;
+
+            // 4. 기본 맵
             printf("%c", map[i][j]);
         }
         printf("\n");
     }
 
-    //플레이어 스탯 및 게임 메시지 출력
-    printf("\nPlayer HP: %d | ATK: %d\n", player->hp, player->atk);
-    printf("------------------------------\n");
-    printf("%s\n", game_message); //게임 메시지 출력
+    printf("\n[STATUS] HP: %d/%d | ATK: %d\n", player->hp, player->max_hp, player->atk);
+    printf("----------------------------------\n");
+    printf("%s\n", game_message);
+}
+
+// 다음 스테이지 세팅 함수
+void next_stage(struct Player* player, struct Monster monsters[], struct Item items[]) {
+    current_stage++; // 층수 증가
+
+    // 플레이어 위치 초기화
+    player->x = 1;
+    player->y = 1;
+
+    // 몬스터 부활 및 강화 (난이도 상승)
+    for (int i = 0; i < MAX_MONSTERS; i++) {
+        monsters[i].alive = 1;
+        monsters[i].max_hp += 10;       // 체력 증가
+        monsters[i].hp = monsters[i].max_hp;
+        monsters[i].atk += 2;           // 공격력 증가
+    }
+
+    // 아이템 리셋 (다시 먹을 수 있게)
+    for (int i = 0; i < MAX_ITEMS; i++) {
+        items[i].active = 1;
+    }
+
+    sprintf(game_message, "지하 %d층으로 내려왔습니다! 몬스터가 강해졌습니다!", current_stage);
 }
 
 int main() {
 
-    //플레이어 스탯 초기화
-    struct Player player;
-    player.x = 1;
-    player.y = 1;
-    player.hp = 100;
-    player.atk = 10;
+    // 플레이어 초기화
+    struct Player player = { 1, 1, 100, 100, 10 }; // x, y, hp, max_hp, atk
 
-    //몬스터 초기화 (위치, hp, atk, 생존여부)
-    struct Monster monsters[MAX_MONSTERS];
-    monsters[0] = (struct Monster){ 3, 3, 30, 5, 1 };
-    monsters[1] = (struct Monster){ 8, 6, 30, 5, 1 };
-    monsters[2] = (struct Monster){ 15, 7, 30, 5, 1 };
+    // 몬스터 초기화
+    struct Monster monsters[MAX_MONSTERS] = {
+        {3, 3, 30, 30, 5, 1},
+        {7, 6, 30, 30, 5, 1}, 
+        {15, 8, 30, 30, 5, 1}
+    };
+
+    // 아이템 초기화 (좌표 수정됨)
+    struct Item items[MAX_ITEMS] = {
+        {5, 5, 'P', 30, 1},
+        {10, 1, 'S', 3, 1}, 
+        {15, 3, 'P', 30, 1} 
+    };
 
     char input_key;
-    int game_running = 1; //게임 오버/클리어 상태 변수 (1 = 진행중)
+    int game_running = 1;
 
-    strcpy(game_message, "던전에 오신 것을 환영합니다! (q: 종료)");
+    strcpy(game_message, "던전 탐험을 시작합니다! (P:물약, S:검)");
 
-    //메인 게임 루프
-    while(game_running) {
+    while (game_running) {
 
-        display_map(&player, monsters);
+        display_map(&player, monsters, items);
 
         input_key = _getch();
-        strcpy(game_message, ""); //새 입력 받기 전 메시지 초기화
+        strcpy(game_message, "");
 
-        //이동할 다음 좌표 계산
         int next_x = player.x;
         int next_y = player.y;
 
-        if (input_key == 'w') { next_y--; }
-        else if (input_key == 's') { next_y++; }
-        else if (input_key == 'a') { next_x--; }
-        else if (input_key == 'd') { next_x++; }
-        else if (input_key == 'q') {
+        // 키 입력 처리 (대소문자 모두 허용)
+        if (input_key == 'w' || input_key == 'W') next_y--;
+        else if (input_key == 's' || input_key == 'S') next_y++;
+        else if (input_key == 'a' || input_key == 'A') next_x--;
+        else if (input_key == 'd' || input_key == 'D') next_x++;
+        else if (input_key == 'q' || input_key == 'Q') {
             game_running = 0;
             strcpy(game_message, "게임을 종료했습니다.");
             continue;
         }
 
-        //승리 조건 검사 (출구)
+        // 1. 다음 스테이지 이동
         if (map[next_y][next_x] == '>') {
-            game_running = 0;
-            strcpy(game_message, "GAME CLEAR! 던전을 탈출했습니다!");
+            next_stage(&player, monsters, items);
             continue;
         }
 
-        //몬스터 충돌 검사 (전투)
-        int monster_index = -1; // -1이면 몬스터 없음
+        //몬스터 충돌 및 전투
+        int monster_index = -1;
         for (int i = 0; i < MAX_MONSTERS; i++) {
             if (monsters[i].alive && monsters[i].y == next_y && monsters[i].x == next_x) {
                 monster_index = i;
@@ -143,45 +188,60 @@ int main() {
         }
 
         if (monster_index != -1) {
-            //몬스터와 마주침 -> 전투!
             struct Monster* target = &monsters[monster_index];
 
-            //플레이어가 몬스터 공격
-            target->hp -= player->atk;
+            // 공격
+            target->hp -= player.atk;
 
             if (target->hp <= 0) {
-                //몬스터 사망
                 target->alive = 0;
-                sprintf(game_message, "몬스터를 처치했습니다!");
+                sprintf(game_message, "몬스터 처치! (경험치 획득)");
             }
             else {
-                //몬스터가 반격
+                // 반격
                 player.hp -= target->atk;
-                sprintf(game_message, "몬스터를 공격! (적 HP: %d) | 반격당함! (HP: %d)", target->hp, player.hp);
+                sprintf(game_message, "전투! 몬스터 HP:%d | 플레이어 HP:%d", target->hp, player.hp);
 
-                //사망 조건 검사 (플레이어)
                 if (player.hp <= 0) {
                     game_running = 0;
-                    strcpy(game_message, "GAME OVER... 몬스터에게 패배했습니다.");
+                    strcpy(game_message, "GAME OVER... 당신은 차가운 바닥에 쓰러졌습니다.");
                 }
             }
         }
-        //벽 충돌 검사
         else if (map[next_y][next_x] != '#') {
-            //몬스터가 없고 벽도 아니면 -> 이동
+            //아이템 획득 로직
+            for (int i = 0; i < MAX_ITEMS; i++) {
+                if (items[i].active && items[i].y == next_y && items[i].x == next_x) {
+                    items[i].active = 0; // 아이템 획득 처리
+
+                    if (items[i].type == 'P') { // 물약
+                        player.hp += items[i].value;
+                        if (player.hp > player.max_hp) player.hp = player.max_hp; // 최대 체력 제한
+                        sprintf(game_message, "물약 획득! HP가 회복되었습니다.");
+                    }
+                    else if (items[i].type == 'S') { // 검
+                        player.atk += items[i].value;
+                        sprintf(game_message, "낡은 검 획득! 공격력이 %d 증가했습니다.", items[i].value);
+                    }
+                }
+            }
+
+            // 이동 반영
             player.x = next_x;
             player.y = next_y;
-            sprintf(game_message, "이동... (x: %d, y: %d)", player.x, player.y);
+
+            // 메시지가 비어있다면 이동 메시지
+            if (strlen(game_message) == 0)
+                sprintf(game_message, "이동 중... (Stage %d)", current_stage);
+
         }
         else {
-            //벽이라서 이동 불가
-            sprintf(game_message, "벽에 막혔습니다!");
+            sprintf(game_message, "벽입니다. 지나갈 수 없습니다.");
         }
     }
 
-    //게임 루프 종료 후 마지막 상태 표시
-    display_map(&player, monsters);
-    printf("\n%s\n", game_message); //최종 메시지 출력
+    display_map(&player, monsters, items);
+    printf("\n%s\n", game_message);
 
     return 0;
 }
